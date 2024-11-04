@@ -1,5 +1,6 @@
 #include <avr/io.h>
 #include <stdlib.h> 
+#include <stdarg.h>
 #include <util/delay.h>
 #define BAUD 38400
 #define MYUBRR F_CPU/16/BAUD-1
@@ -32,9 +33,17 @@ void USART_Transmit(unsigned char data)
     /* Put data into buffer, sends the data */
     UDR0 = data;
 }
-void USART_Print(char* string){
-    for(int i = 0; string[i] != '\0'; i++){
-        USART_Transmit(string[i]);
+
+
+void USART_Printf(const char* format, ...) {
+    char buffer[128];  // Buffer to hold the formatted string
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+
+    for (int i = 0; buffer[i] != '\0'; i++) {
+        USART_Transmit(buffer[i]);
     }
 }
 // Function to initialize SPI
@@ -50,6 +59,12 @@ void SPI_Init(void) {
 }
 
     
+void MBI5024_Latch() {
+    // Toggle LE pin (latch enable)
+    PORTC |= (1 << LE_PIN);   // Set LE high
+    _delay_us(1);             // Small delay for latch
+    PORTC &= ~(1 << LE_PIN);  // Set LE low
+}
 void MBI5024_Send(uint16_t data) {
     // Send the high byte first
     SPDR = (data >> 8);
@@ -58,15 +73,12 @@ void MBI5024_Send(uint16_t data) {
     // Send the low byte
     SPDR = data & 0xFF;
     while (!(SPSR & (1 << SPIF)));  // Wait for transmission to complete
+
+    MBI5024_Latch();        
+
 }
 
 
-void MBI5024_Latch() {
-    // Toggle LE pin (latch enable)
-    PORTC |= (1 << LE_PIN);   // Set LE high
-    _delay_us(1);             // Small delay for latch
-    PORTC &= ~(1 << LE_PIN);  // Set LE low
-}
 int main(){
     DDRD |= (1 << PD6); 
     DDRD &= ~(1 << PD2);//HALL SENSOR
@@ -75,6 +87,8 @@ int main(){
     PORTC &= ~(1 << OE_PIN);  // Set OE low to enable outputs
 
     USART_Init(MYUBRR);
+    TCCR0B = (1 << CS00) | (1 << CS02); // Set up timer with prescaler = 1024
+    TCNT0 = 0; // Initialize counter
         
     while(1){
         PORTD |= (1 << PD6); 
@@ -83,37 +97,23 @@ int main(){
         //Retrieve the data from the hall sensor
         if(PIND & (1 << PD2)){
             // No magnetic field
-           
+            MBI5024_Send(0x0000);           
         }else{
             //Magnetic field
+
+            MBI5024_Send(0xFFFF);
+            
         }
 
 
+        //Get the timer value
+        int timer = TCNT0;
+        USART_Printf("Timer: %d\n", timer);
 
-        USART_Print("Hello World X\n");
 
-        // Turn on the LED
-    
-        // Send data to turn off all LEDs
-        MBI5024_Send(0b1010101000110011); // 0b01010101 in binary is 85 in decimal
-        
-
-        MBI5024_Latch();        
-
-        USART_Print("OFF\n");
-        
-        _delay_ms(1000);
-
-        // Send data to turn on all LEDs
-
-        MBI5024_Send(0);
-        
-        MBI5024_Latch();
-        USART_Print("ON\n");
-
-        _delay_ms(1000);
 
         
+
 
     }
 }
