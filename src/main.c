@@ -117,13 +117,13 @@ int main(){
 
     USART_Init(MYUBRR);
     
-    TCCR0B |= (1 << CS02) | (1 << CS00);  
-    TCNT0 = 0;
-
+    TCCR1B |= (1 << CS12);  
+    TCNT1 = 0;
+    
 
     
     uint8_t last_state = 0;
-    uint8_t last_speed = 0;
+    //uint8_t last_speed = 0;
         
     while(1){
         PORTD |= (1 << PD6); 
@@ -134,10 +134,10 @@ int main(){
             // No magnetic field
             if (last_state == 1){
                 //Calculate the speed
-                uint8_t speed = TCNT0;
-                TCNT0 = 0;
-                USART_Printf("Speed: %d\n", speed);
-                last_speed = speed;
+                uint16_t speed = TCNT1;
+                TCNT1 = 0;
+                USART_Printf("Speed1: %d\n", speed);
+                //last_speed = speed1;
 
             }
             MBI5024_Send(0x0000);      
