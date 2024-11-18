@@ -1,7 +1,11 @@
 #include <avr/io.h>
-#include <stdlib.h> 
+#include <stdlib.h>
+#include <stdio.h> 
 #include <stdarg.h>
 #include <util/delay.h>
+#include <avr/interrupt.h>
+#include "ring_buffer.h"
+
 #define BAUD 38400
 #define MYUBRR F_CPU/16/BAUD-1
 
@@ -13,6 +17,26 @@
 #define CLK_PIN     PB5   // Clock pin (connect to CLK)
 #define SS_PIN PB2  
 
+
+ring_buffer_t tx_buffer;
+// ring_buffer_t rx_buffer;
+
+
+uint8_t USART_Available();
+uint8_t USART_Read_byte();
+
+// Gestionnaire d'interruption pour la transmission
+ISR(USART_UDRE_vect) {
+    /* Check if there's data in the buffer */
+    if (ring_buffer_available_bytes(&tx_buffer) > 0) {
+        /* Transmit a byte from the buffer */
+        UDR0 = ring_buffer_get(&tx_buffer);
+    } else {
+        /* Disable interrupt if the buffer is empty */
+        UCSR0B &= ~(1 << UDRIE0);
+    }
+}
+
 void USART_Init(unsigned int ubrr)
 {
     /*Set baud rate */
@@ -22,16 +46,21 @@ void USART_Init(unsigned int ubrr)
     /* Enable receiver and transmitter PIN */
     UCSR0B = (1<<RXEN0)|(1<<TXEN0);
     /* Set frame format: 8data, 2stop bit */
-    UCSR0C = (1<<USBS0)|(3<<UCSZ00);
+    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
+    
+
+    ring_buffer_init(&tx_buffer);
+
+    sei();
+
 }
 
 void USART_Transmit(unsigned char data)
 {
-    /* Wait for empty transmit buffer */
-    while (!(UCSR0A & (1<<UDRE0)))
-    ;
-    /* Put data into buffer, sends the data */
-    UDR0 = data;
+    ring_buffer_put(&tx_buffer, data);
+
+    // Activer l'interruption de transmission si elle ne l'est pas déjà
+    UCSR0B |= (1 << UDRIE0);
 }
 
 
@@ -87,8 +116,14 @@ int main(){
     PORTC &= ~(1 << OE_PIN);  // Set OE low to enable outputs
 
     USART_Init(MYUBRR);
-    TCCR0B = (1 << CS00) | (1 << CS02); // Set up timer with prescaler = 1024
-    TCNT0 = 0; // Initialize counter
+    
+    TCCR0B |= (1 << CS02) | (1 << CS00);  
+    TCNT0 = 0;
+
+
+    
+    uint8_t last_state = 0;
+    uint8_t last_speed = 0;
         
     while(1){
         PORTD |= (1 << PD6); 
@@ -97,20 +132,26 @@ int main(){
         //Retrieve the data from the hall sensor
         if(PIND & (1 << PD2)){
             // No magnetic field
-            MBI5024_Send(0x0000);           
+            if (last_state == 1){
+                //Calculate the speed
+                uint8_t speed = TCNT0;
+                TCNT0 = 0;
+                USART_Printf("Speed: %d\n", speed);
+                last_speed = speed;
+
+            }
+            MBI5024_Send(0x0000);      
+            last_state = 0;
         }else{
             //Magnetic field
-
-            MBI5024_Send(0xFFFF);
             
+            MBI5024_Send(0xFFFF);
+            last_state = 1;
         }
 
+        
 
-        //Get the timer value
-        int timer = TCNT0;
-        USART_Printf("Timer: %d\n", timer);
-
-
+        
 
         
 
