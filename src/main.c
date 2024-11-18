@@ -27,7 +27,7 @@ void MBI5024_Send(uint16_t data);
 void USART_Printf(const char* format, ...);
 
 ring_buffer_t tx_buffer;
-uint8_t last_timer;
+uint16_t last_timer;
 
 
 
@@ -53,8 +53,9 @@ ISR(INT0_vect) {
     // For example, toggle an LED or update a counter
     PORTD ^= (1 << PD6); // Toggle PD6 (LED)
 
-    last_timer = TCNT0;
-    TCNT0 = 0;
+    last_timer = TCNT1;
+    TCNT1 = 0;
+    USART_Printf("Speed: %d\n", last_timer);
     
 }
 
@@ -136,8 +137,8 @@ void HallSensor_Init(){
     EIMSK |= (1 << INT0); 
 }
 
-int get_rad_position(){
-    return 2 * PI * TCNT0 / last_timer;
+double get_rad_position(){
+    return 2 * PI * TCNT1 / last_timer;
 }
 
 
@@ -156,17 +157,30 @@ int main(){
     draw_at(PI/2, 0xFFFF);
 
     sei();
+
+    
+    TCCR1B |= (1 << CS12) | (1 << CS10);  
+    TCNT1 = 0;
+    
+
+
+        
     while(1){
         PORTD |= (1 << PD6); 
         PORTD &= ~(1 << PD6);
 
+
         
-        int current_rad = get_rad_position();
+        double current_rad = get_rad_position();
         uint16_t data = get_draw_at(current_rad);
+
+      
         MBI5024_Send(data);
 
+        // _delay_us(500);
 
-        _delay_us(10);
+
+        
         
       
 
