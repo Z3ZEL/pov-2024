@@ -5,10 +5,14 @@
 #include <util/delay.h>
 #include <avr/interrupt.h>
 #include "ring_buffer.h"
+#include "draw.h"
 
 #define BAUD 38400
 #define MYUBRR F_CPU/16/BAUD-1
+#define TIMER0_PRESCALER 1024
 
+//Hall sensor
+#define HALL_PIN PD2
 
 //LED
 #define OE_PIN      PC1   // Output Enable pin (connect to OE)
@@ -18,8 +22,14 @@
 #define SS_PIN PB2  
 
 
+//Void def
+void MBI5024_Send(uint16_t data);
+void USART_Printf(const char* format, ...);
+
 ring_buffer_t tx_buffer;
-// ring_buffer_t rx_buffer;
+uint8_t last_timer;
+
+
 
 
 uint8_t USART_Available();
@@ -37,6 +47,17 @@ ISR(USART_UDRE_vect) {
     }
 }
 
+ISR(INT0_vect) {
+    // Interrupt service routine for INT0 (PD2)
+    // Handle the hall sensor interrupt here
+    // For example, toggle an LED or update a counter
+    PORTD ^= (1 << PD6); // Toggle PD6 (LED)
+
+    last_timer = TCNT0;
+    TCNT0 = 0;
+    
+}
+
 void USART_Init(unsigned int ubrr)
 {
     /*Set baud rate */
@@ -51,7 +72,6 @@ void USART_Init(unsigned int ubrr)
 
     ring_buffer_init(&tx_buffer);
 
-    sei();
 
 }
 
@@ -85,6 +105,8 @@ void SPI_Init(void) {
     
     /* Enable SPI, Master, set clock rate fck/16 */
     SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR0);
+
+    PORTC &= ~(1 << OE_PIN);  // Set OE low to enable outputs
 }
 
     
@@ -107,54 +129,46 @@ void MBI5024_Send(uint16_t data) {
 
 }
 
+void HallSensor_Init(){
+    DDRD &= ~(1 << HALL_PIN);
+
+    EICRA |= (1 << ISC01);
+    EIMSK |= (1 << INT0); 
+}
+
+int get_rad_position(){
+    return 2 * PI * TCNT0 / last_timer;
+}
+
 
 int main(){
     DDRD |= (1 << PD6); 
-    DDRD &= ~(1 << PD2);//HALL SENSOR
-
-    SPI_Init();
-    PORTC &= ~(1 << OE_PIN);  // Set OE low to enable outputs
-
-    USART_Init(MYUBRR);
     
-    TCCR0B |= (1 << CS02) | (1 << CS00);  
+    draw_buffer_init();
+    SPI_Init();
+    USART_Init(MYUBRR);
+    HallSensor_Init();
+    
+    // Set the prescaler to 1024
+    TCCR0B |= (1 << CS02) | (1 << CS00);
     TCNT0 = 0;
 
+    draw_at(PI/2, 0xFFFF);
 
-    
-    uint8_t last_state = 0;
-    uint8_t last_speed = 0;
-        
+    sei();
     while(1){
         PORTD |= (1 << PD6); 
         PORTD &= ~(1 << PD6);
 
-        //Retrieve the data from the hall sensor
-        if(PIND & (1 << PD2)){
-            // No magnetic field
-            if (last_state == 1){
-                //Calculate the speed
-                uint8_t speed = TCNT0;
-                TCNT0 = 0;
-                USART_Printf("Speed: %d\n", speed);
-                last_speed = speed;
-
-            }
-            MBI5024_Send(0x0000);      
-            last_state = 0;
-        }else{
-            //Magnetic field
-            
-            MBI5024_Send(0xFFFF);
-            last_state = 1;
-        }
-
         
+        int current_rad = get_rad_position();
+        uint16_t data = get_draw_at(current_rad);
+        MBI5024_Send(data);
 
+
+        _delay_us(10);
         
-
-        
-
+      
 
     }
 }
