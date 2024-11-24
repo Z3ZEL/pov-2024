@@ -6,6 +6,7 @@
 #include <avr/interrupt.h>
 #include "ring_buffer.h"
 #include "draw.h"
+#include "conversion.h"
 
 #define BAUD 38400
 #define MYUBRR F_CPU/16/BAUD-1
@@ -27,13 +28,13 @@ void MBI5024_Send(uint16_t data);
 void USART_Printf(const char* format, ...);
 
 ring_buffer_t tx_buffer;
+ring_buffer_t rx_buffer;
 uint16_t last_timer;
 
 
 
 
 uint8_t USART_Available();
-uint8_t USART_Read_byte();
 
 // Gestionnaire d'interruption pour la transmission
 ISR(USART_UDRE_vect) {
@@ -47,6 +48,15 @@ ISR(USART_UDRE_vect) {
     }
 }
 
+ISR(USART_RX_vect) {
+    /* Read the received byte */
+    uint8_t data = UDR0;
+    /* Put the received byte in the buffer */
+    ring_buffer_put(&rx_buffer, data);
+
+    
+}
+
 ISR(INT0_vect) {
     // Interrupt service routine for INT0 (PD2)
     // Handle the hall sensor interrupt here
@@ -55,9 +65,33 @@ ISR(INT0_vect) {
 
     last_timer = TCNT1;
     TCNT1 = 0;
-    USART_Printf("Speed: %d\n", last_timer);
+    
     
 }
+
+
+
+void display_second(uint8_t second){
+
+    double rad = second_to_rad(second);
+    draw_at(rad, 0x0FFF);
+
+
+}
+
+void USART_ReadLn(char* buffer, uint8_t size) {
+    uint8_t i = 0;
+    while (i < size - 1) {
+        while (!USART_Available());
+        char c = ring_buffer_get(&rx_buffer);
+        if (c == '\n' || c == '\r') {
+            break;
+        }
+        buffer[i++] = c;
+    }
+    buffer[i] = '\0';
+}
+
 
 void USART_Init(unsigned int ubrr)
 {
@@ -66,14 +100,16 @@ void USART_Init(unsigned int ubrr)
     UBRR0L = (unsigned char)ubrr;
 
     /* Enable receiver and transmitter PIN */
-    UCSR0B = (1<<RXEN0)|(1<<TXEN0);
+    UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0);
     /* Set frame format: 8data, 2stop bit */
     UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
     
 
     ring_buffer_init(&tx_buffer);
+}
 
-
+uint8_t USART_Available() {
+    return ring_buffer_available_bytes(&rx_buffer);
 }
 
 void USART_Transmit(unsigned char data)
@@ -154,34 +190,85 @@ int main(){
     TCCR0B |= (1 << CS02) | (1 << CS00);
     TCNT0 = 0;
 
-    draw_at(PI/2, 0xFFFF);
-
+    
+    display_second(0);
     sei();
 
-    
-    TCCR1B |= (1 << CS12) | (1 << CS10);  
+    draw_digit_at((vector_c_t){20,8}, DIGIT_9,3);
+    draw_digit_at((vector_c_t){5,8}, DIGIT_0,3);
+    // draw_digit_at((vector_c_t){25,8}, V_LINE);
+
+    // Set the prescaler to 64
+    TCCR1B |= (1 << CS11) | (1 << CS10);
     TCNT1 = 0;
     
-
 
         
     while(1){
         PORTD |= (1 << PD6); 
         PORTD &= ~(1 << PD6);
 
-
+        
         
         double current_rad = get_rad_position();
-        uint16_t data = get_draw_at(current_rad);
-
-      
+        uint16_t data = get_draw_at(current_rad);      
         MBI5024_Send(data);
 
         // _delay_us(500);
 
 
-        
-        
+        if (USART_Available()) {
+            char buffer[128];
+            USART_ReadLn(buffer, sizeof(buffer));
+
+            int number;
+
+            sscanf(buffer, "%d", &number);
+
+            reset_draw();
+
+            vector_c_t first_digit_origin = {5,8};
+            vector_c_t second_digit_origin = {20,8};
+
+            int first_digit = number / 10;
+            int second_digit = number % 10;
+
+            draw_int_at(first_digit_origin, first_digit, 3);
+            draw_int_at(second_digit_origin, second_digit, 3);
+            
+
+            USART_Printf("Number: %d\n", number);
+
+
+
+
+
+
+            // convert "x y" string receive
+            // int x,y;
+            // sscanf(buffer, "%d %d", &x, &y);
+            // USART_Printf("X: %d\n", x);
+            // USART_Printf("Y: %d\n", y);
+            // vector_c_t point = {x, y};
+            // vector_p_t polar = cartesian_to_polar(point);
+
+
+            // // draw_point_at(point);
+
+            
+            
+            
+
+            // //convert double to string
+            // char print_buffer[6];
+            // dtostrf(polar.rho, 4, 2, print_buffer);
+            // USART_Printf("Rho: %s\n", print_buffer);
+            // dtostrf(polar.phi, 4, 2, print_buffer);
+            // USART_Printf("Phi: %s\n", print_buffer);
+
+            
+        }
+
       
 
     }

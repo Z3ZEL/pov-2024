@@ -13,7 +13,7 @@ $(BUILD_DIR)/%.o: $(WORK_DIR)/%.c
 
 build: $(OBJ_FILES)
 	mkdir -p $(BUILD_DIR)
-	avr-gcc -mmcu=$(MCU_TARGET) -DF_CPU=$(FREQ) -Os -o $(BUILD_DIR)/firmware.bin $(OBJ_FILES)
+	avr-gcc -mmcu=$(MCU_TARGET) -DF_CPU=$(FREQ) -Os -o $(BUILD_DIR)/firmware.bin $(OBJ_FILES) 
 
 install: build
 	avrdude -B 0.1 -c usbasp -p $(MCU_TARGET) -V -U flash:w:$(BUILD_DIR)/firmware.bin
@@ -27,3 +27,4 @@ shell:
 
 clean:
 	rm -rf $(BUILD_DIR)
+	mkdir -p $(BUILD_DIR)
