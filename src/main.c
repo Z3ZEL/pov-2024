@@ -204,10 +204,6 @@ int main(){
     SPI_Init();
     USART_Init(MYUBRR);
     HallSensor_Init();
-    
-    // Set the prescaler to 1024
-    TCCR0B |= (1 << CS02) | (1 << CS00);
-    TCNT0 = 0;
 
     
     display_second(0);
