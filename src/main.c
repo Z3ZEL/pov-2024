@@ -13,6 +13,8 @@
 #define TIMER0_PRESCALER 1024
 #define FREQ 13000000
 
+
+
 //Hall sensor
 #define HALL_PIN PD2
 
@@ -37,8 +39,23 @@ uint16_t last_timer;
 
 uint8_t USART_Available();
 uint8_t USART_Read_byte();
-int Overflow_count = 0;
-int Seconde = 0;
+uint16_t last_second_state = 0;
+int need_redraw_second = 0, need_redraw_digits = 1;
+
+int overflow_count = 0;
+int second = 0;
+int minute = 0;
+int hour = 0;
+
+
+vector_c_t hour_first_digit_origin = {8,17};
+vector_c_t hour_second_digit_origin = {18,17};
+
+vector_c_t minute_first_digit_origin = {8,5};
+vector_c_t minute_second_digit_origin = {18,5};
+
+
+
 
 // Gestionnaire d'interruption pour la transmission
 ISR(USART_UDRE_vect) {
@@ -75,12 +92,49 @@ ISR(INT0_vect) {
 
 
 
+ISR(TIMER0_COMPA_vect) 
+{
+    // Handle Timer0 compare match interrupt
+
+    // Increment the timer counter
+    TCNT0 = 0;
+
+    overflow_count++;
+    if (overflow_count == 1625)
+    {
+        second++;
+        overflow_count = 0;
+        need_redraw_second = 1;
+
+        if(second == 60){
+            second = 0;
+            minute++;
+            need_redraw_digits = 1;
+        }
+        if (minute == 60){
+            hour++;    
+        }
+        if (hour == 24){
+            hour = 0;
+        }
+    }
+
+
+    
+}
+
+
+
 void display_second(uint8_t second){
-
+    draw_force_at(second_to_rad(second-1), last_second_state);
     float rad = second_to_rad(second);
+    last_second_state = get_draw_at(rad);
     draw_at(rad, 0x0FFF);
+}
 
-
+void extract_digit(int number, int* first_digit, int* second_digit){
+    *first_digit = number / 10;
+    *second_digit = number % 10;
 }
 
 void USART_ReadLn(char* buffer, uint8_t size) {
@@ -97,17 +151,7 @@ void USART_ReadLn(char* buffer, uint8_t size) {
 }
 
 
-ISR(TIMER0_OVF_vect) 
-{
-    USART_Printf("I");
-    Overflow_count = Overflow_count + 1;
-    if (Overflow_count == 1625)
-    {
-        Seconde = Seconde + 1;
-        USART_Printf("Seconde= %d\n", Seconde);
-        Overflow_count = 0;
-    }
-}
+
 
 void USART_Init(unsigned int ubrr)
 {
@@ -126,7 +170,6 @@ void USART_Init(unsigned int ubrr)
 
 uint8_t USART_Available() {
     return ring_buffer_available_bytes(&rx_buffer);
-    sei();
 }
 
 void USART_Transmit(unsigned char data)
@@ -183,6 +226,25 @@ void MBI5024_Send(uint16_t data) {
 
 }
 
+void TimerInit(){
+
+    TCNT0 = 0;
+    //valeur supérieur de l'horloge (125)
+    OCR0A = 0b01111100;
+    //Activation de l'interrupt
+    //Activation des interrupts globaux
+    SREG |= (1 << SREG_I);
+    //Activation du flag de la comparaison de OCR0A
+    // TIFR0 |= (1 << OCF0A);
+    //Activation de l'interrupt
+    TIMSK0 |= (1 << OCIE0A);  
+    //mode : CTC
+    TCCR0A |= (1 << WGM01);
+    //prescailer de 64
+    TCCR0B |= (1 << CS01) | (1 << CS00);
+
+}
+
 void HallSensor_Init(){
     DDRD &= ~(1 << HALL_PIN);
 
@@ -204,56 +266,17 @@ int main(){
     SPI_Init();
     USART_Init(MYUBRR);
     HallSensor_Init();
-
+    TimerInit();
     
-    display_second(0);
-    sei();
-
-    // draw_digit_at((vector_c_t){20,8}, DIGIT_9,3);
-    // draw_digit_at((vector_c_t){5,8}, DIGIT_0,3);
-    // draw_digit_at((vector_c_t){25,8}, V_LINE);
 
     // Set the prescaler to 64
     TCCR1B |= (1 << CS11) | (1 << CS10);
     TCNT1 = 0;
 
-    TCNT0 = 0;
-    //valeur supérieur de l'horloge (125)
-    OCR0A = 0b01111100;
-    //Activation de l'interrupt
-    //Activation des interrupts globaux
-    SREG |= (1 << SREG_I);
-    //Activation du flag de la comparaison de OCR0A
-    TIFR0 |= (1 << OCF0A);
-    //Activation de l'interrupt
-    TIMSK0 |= (1 << OCIE0A);  
-    //mode : CTC
-    TCCR0A |= (1 << WGM01);
-    //prescailer de 64
-    TCCR0B |= (1 << CS01) | (1 << CS02);
+
+
+    sei();
     
-    
-    // Define digit origin
-    vector_c_t hour_first_digit_origin = {8,17};
-    vector_c_t hour_second_digit_origin = {18,17};
-
-    vector_c_t minute_first_digit_origin = {8,5};
-    vector_c_t minute_second_digit_origin = {18,5};
-
-
-    vector_c_t second_first_digit_origin = {11,1};
-    vector_c_t second_second_digit_origin = {17,1};
-
-
-    draw_int_at(hour_first_digit_origin, 2, 2);
-    draw_int_at(hour_second_digit_origin, 3, 2);
-
-    draw_int_at(minute_first_digit_origin, 5, 2);
-    draw_int_at(minute_second_digit_origin, 9, 2);
-
-    // draw_int_at(second_first_digit_origin, 0, 0.25);
-    // draw_int_at(second_second_digit_origin, 0, 0.25);
-
     
     while(1){        
         
@@ -262,6 +285,25 @@ int main(){
         MBI5024_Send(data);
 
         // _delay_us(500);
+        
+
+        if (need_redraw_second){
+            display_second(second);
+            need_redraw_second = 0;
+        }
+        if(need_redraw_digits){
+            int first_digit, second_digit;
+            reset_draw();
+            extract_digit(hour, &first_digit, &second_digit);
+            draw_int_at(hour_first_digit_origin, first_digit, 2);
+            draw_int_at(hour_second_digit_origin, second_digit, 2);
+
+            extract_digit(minute, &first_digit, &second_digit);
+            draw_int_at(minute_first_digit_origin, first_digit, 2);
+            draw_int_at(minute_second_digit_origin, second_digit, 2);
+
+            need_redraw_digits = 0;
+        }
 
 
         if (USART_Available()) {
@@ -320,13 +362,13 @@ int main(){
 
         
     
-        uint8_t count = TCNT0;
-        USART_Printf("count: %d\n", count);
-        USART_Printf("Seconde: %d\n", Seconde);
-        USART_Printf("Count: %d\n", Overflow_count);
+        // uint8_t count = TCNT0;
+        // USART_Printf("count: %d\n", count);
+        // USART_Printf("Seconde: %d\n", second);
+        // USART_Printf("Count: %d\n", overflow_count);
 
 
-        _delay_ms(1000);
+        // _delay_ms(1000);
                 
 
 

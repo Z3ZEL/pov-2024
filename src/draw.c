@@ -25,9 +25,12 @@ void reset_draw(){
 void draw_at(float rad, uint16_t data){
     int index = rad_to_index(POLAR_PHI_DISCRETISATION, rad);
     uint16_t current_data = draw_data.buffer[index];
-    // draw_data.buffer[index] = data;
     draw_data.buffer[index] = data | current_data;
+}
 
+void draw_force_at(float rad, uint16_t data){
+    int index = rad_to_index(POLAR_PHI_DISCRETISATION, rad);    
+    draw_data.buffer[index] = data;
 }
 uint16_t get_draw_at(float rad){
     int index =  rad_to_index(POLAR_PHI_DISCRETISATION, rad);

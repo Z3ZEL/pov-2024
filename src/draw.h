@@ -31,6 +31,7 @@ void draw_digit_at(vector_c_t origin,const char* digit, float scale);
 void draw_int_at(vector_c_t origin, int number, float scale);
 void draw_point_at(vector_c_t point);
 uint16_t get_draw_at(float rad);
+void draw_force_at(float rad, uint16_t data);
 void reset_draw();
 
 
