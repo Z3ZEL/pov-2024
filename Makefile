@@ -4,6 +4,7 @@ BUILD_DIR = build
 WORK_DIR = src
 FREQ = 13000000
 MCU_TARGET = atmega328p
+DEVICE_ADDR = 98:D3:B1:FD:8B:F4
 
 SRC_FILES := $(wildcard $(WORK_DIR)/*.c)
 OBJ_FILES := $(patsubst $(WORK_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRC_FILES))

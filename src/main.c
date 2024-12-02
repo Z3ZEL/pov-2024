@@ -11,6 +11,7 @@
 #define BAUD 38400
 #define MYUBRR F_CPU/16/BAUD-1
 #define TIMER0_PRESCALER 1024
+#define FREQ 13000000
 
 //Hall sensor
 #define HALL_PIN PD2
@@ -35,6 +36,9 @@ uint16_t last_timer;
 
 
 uint8_t USART_Available();
+uint8_t USART_Read_byte();
+int Overflow_count = 0;
+int Seconde = 0;
 
 // Gestionnaire d'interruption pour la transmission
 ISR(USART_UDRE_vect) {
@@ -93,6 +97,18 @@ void USART_ReadLn(char* buffer, uint8_t size) {
 }
 
 
+ISR(TIMER0_OVF_vect) 
+{
+    USART_Printf("I");
+    Overflow_count = Overflow_count + 1;
+    if (Overflow_count == 1625)
+    {
+        Seconde = Seconde + 1;
+        USART_Printf("Seconde= %d\n", Seconde);
+        Overflow_count = 0;
+    }
+}
+
 void USART_Init(unsigned int ubrr)
 {
     /*Set baud rate */
@@ -110,6 +126,7 @@ void USART_Init(unsigned int ubrr)
 
 uint8_t USART_Available() {
     return ring_buffer_available_bytes(&rx_buffer);
+    sei();
 }
 
 void USART_Transmit(unsigned char data)
@@ -178,6 +195,8 @@ double get_rad_position(){
 }
 
 
+
+
 int main(){
     DDRD |= (1 << PD6); 
     
@@ -201,10 +220,30 @@ int main(){
     // Set the prescaler to 64
     TCCR1B |= (1 << CS11) | (1 << CS10);
     TCNT1 = 0;
+
+    TCNT0 = 0;
+    //valeur supérieur de l'horloge (125)
+    OCR0A = 0b01111100;
+    //Activation de l'interrupt
+    //Activation des interrupts globaux
+    SREG |= (1 << SREG_I);
+    //Activation du flag de la comparaison de OCR0A
+    TIFR0 |= (1 << OCF0A);
+    //Activation de l'interrupt
+    TIMSK0 |= (1 << OCIE0A);  
+    //mode : CTC
+    TCCR0A |= (1 << WGM01);
+    //prescailer de 64
+    TCCR0B |= (1 << CS01) | (1 << CS02);
+    
     
 
+    
+    uint8_t last_state = 0;
+    //uint8_t last_speed = 0;
         
     while(1){
+        //MBI5024_Send(0x0000);
         PORTD |= (1 << PD6); 
         PORTD &= ~(1 << PD6);
 
@@ -271,5 +310,28 @@ int main(){
 
       
 
+        //Retrieve the data from the hall sensor
+        if(PIND & (1 << PD2)){
+            // No magnetic field
+            if (last_state == 1){
+                //Calculate the speed
+                uint16_t speed = TCNT1;
+                TCNT1 = 0;
+                //USART_Printf("Speed: %d\n", speed);
+                //last_speed = speed1;
+                uint8_t count = TCNT0;
+                USART_Printf("count: %d\n", count);
+                USART_Printf("Seconde: %d\n", Seconde);
+                USART_Printf("Count: %d\n", Overflow_count);
+                        
+            //MBI5024_Send(0x0000);      
+            last_state = 0;
+            }
+        }else{
+            //Magnetic field
+            
+            //MBI5024_Send(0xFFFF);
+            last_state = 1;
+        }
     }
 }
