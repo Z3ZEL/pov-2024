@@ -5,11 +5,11 @@
 #define K2 0.000004 // Example distortion coefficient
 
 
-double second_to_rad(uint8_t second){
+float second_to_rad(uint8_t second){
     return 2 * PI - ((second * 2 * PI) / 60);
 }
 
-int rad_to_index(int length, double rad){
+int rad_to_index(int length, float rad){
     // Normalize rad to be within [0, 2*PI)
     while (rad < 0) {
         rad += 2 * PI;
@@ -33,8 +33,9 @@ vector_p_t cartesian_to_polar(vector_c_t v){
 
 
     // Correcting radial distortion
-    double r2 = p.rho * p.rho;
-    double distortion_factor = 1 + K1 * r2 + K2 * r2 * r2;
+    float r2 = p.rho * p.rho;
+    float distortion_factor = 1 + K1 * r2 + K2 * r2 * r2;
+    // float distortion_factor = 1;
     p.rho *= distortion_factor;
 
 

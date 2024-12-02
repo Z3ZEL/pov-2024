@@ -22,14 +22,14 @@ void draw_buffer_init(){
 void reset_draw(){
     draw_buffer_init();
 }
-void draw_at(double rad, uint16_t data){
+void draw_at(float rad, uint16_t data){
     int index = rad_to_index(POLAR_PHI_DISCRETISATION, rad);
     uint16_t current_data = draw_data.buffer[index];
     // draw_data.buffer[index] = data;
     draw_data.buffer[index] = data | current_data;
 
 }
-uint16_t get_draw_at(double rad){
+uint16_t get_draw_at(float rad){
     int index =  rad_to_index(POLAR_PHI_DISCRETISATION, rad);
     return draw_data.buffer[index];
 }
@@ -62,7 +62,7 @@ void interpolateLine(vector_c_t start, vector_c_t end, float step, vector_c_t re
     }
 }
 
-void draw_digit_at(vector_c_t origin, const char* digit, double scale) {
+void draw_digit_at(vector_c_t origin, const char* digit, float scale) {
     // Parse the digit string
     vector_c_t points[10];
 
@@ -75,8 +75,8 @@ void draw_digit_at(vector_c_t origin, const char* digit, double scale) {
         char* comma_pos = strchr(token, ',');
         if (comma_pos != NULL) {
             *comma_pos = '\0';
-            double x = atof(token) * scale;
-            double y = atof(comma_pos + 1) * scale;
+            float x = atof(token) * scale;
+            float y = atof(comma_pos + 1) * scale;
 
             points[count++] = (vector_c_t){origin.x + x, origin.y + y};
         }
@@ -101,7 +101,7 @@ void draw_digit_at(vector_c_t origin, const char* digit, double scale) {
     free(digit_copy);
 }
 
-void draw_int_at(vector_c_t origin, int number, double scale) {
+void draw_int_at(vector_c_t origin, int number, float scale) {
     if (number >= 10){
         number = 9;
     }else if(number < 0){

@@ -73,7 +73,7 @@ ISR(INT0_vect) {
 
 void display_second(uint8_t second){
 
-    double rad = second_to_rad(second);
+    float rad = second_to_rad(second);
     draw_at(rad, 0x0FFF);
 
 
@@ -173,7 +173,7 @@ void HallSensor_Init(){
     EIMSK |= (1 << INT0); 
 }
 
-double get_rad_position(){
+float get_rad_position(){
     return 2 * PI * TCNT1 / last_timer;
 }
 
@@ -194,23 +194,38 @@ int main(){
     display_second(0);
     sei();
 
-    draw_digit_at((vector_c_t){20,8}, DIGIT_9,3);
-    draw_digit_at((vector_c_t){5,8}, DIGIT_0,3);
+    // draw_digit_at((vector_c_t){20,8}, DIGIT_9,3);
+    // draw_digit_at((vector_c_t){5,8}, DIGIT_0,3);
     // draw_digit_at((vector_c_t){25,8}, V_LINE);
 
     // Set the prescaler to 64
     TCCR1B |= (1 << CS11) | (1 << CS10);
     TCNT1 = 0;
     
+    // Define digit origin
+    vector_c_t hour_first_digit_origin = {8,17};
+    vector_c_t hour_second_digit_origin = {18,17};
 
-        
-    while(1){
-        PORTD |= (1 << PD6); 
-        PORTD &= ~(1 << PD6);
+    vector_c_t minute_first_digit_origin = {8,5};
+    vector_c_t minute_second_digit_origin = {18,5};
 
+    vector_c_t second_first_digit_origin = {11,1};
+    vector_c_t second_second_digit_origin = {17,1};
+
+
+    draw_int_at(hour_first_digit_origin, 2, 2);
+    draw_int_at(hour_second_digit_origin, 3, 2);
+
+    draw_int_at(minute_first_digit_origin, 5, 2);
+    draw_int_at(minute_second_digit_origin, 9, 2);
+
+    // draw_int_at(second_first_digit_origin, 0, 0.25);
+    // draw_int_at(second_second_digit_origin, 0, 0.25);
+
+    
+    while(1){        
         
-        
-        double current_rad = get_rad_position();
+        float current_rad = get_rad_position();
         uint16_t data = get_draw_at(current_rad);      
         MBI5024_Send(data);
 
@@ -218,53 +233,53 @@ int main(){
 
 
         if (USART_Available()) {
-            char buffer[128];
-            USART_ReadLn(buffer, sizeof(buffer));
+        //     char buffer[128];
+        //     USART_ReadLn(buffer, sizeof(buffer));
 
-            int number;
+        //     int number;
 
-            sscanf(buffer, "%d", &number);
+        //     sscanf(buffer, "%d", &number);
 
-            reset_draw();
+        //     // reset_draw();
 
-            vector_c_t first_digit_origin = {5,8};
-            vector_c_t second_digit_origin = {20,8};
+        //     vector_c_t first_digit_origin = {5,8};
+        //     vector_c_t second_digit_origin = {20,8};
 
-            int first_digit = number / 10;
-            int second_digit = number % 10;
+        //     int first_digit = number / 10;
+        //     int second_digit = number % 10;
 
-            draw_int_at(first_digit_origin, first_digit, 3);
-            draw_int_at(second_digit_origin, second_digit, 3);
+        //     // draw_int_at(first_digit_origin, first_digit, 3);
+        //     // draw_int_at(second_digit_origin, second_digit, 3);
             
 
-            USART_Printf("Number: %d\n", number);
+        //     USART_Printf("Number: %d\n", number);
 
 
 
 
 
 
-            // convert "x y" string receive
-            // int x,y;
-            // sscanf(buffer, "%d %d", &x, &y);
-            // USART_Printf("X: %d\n", x);
-            // USART_Printf("Y: %d\n", y);
-            // vector_c_t point = {x, y};
-            // vector_p_t polar = cartesian_to_polar(point);
+        //     // convert "x y" string receive
+        //     // int x,y;
+        //     // sscanf(buffer, "%d %d", &x, &y);
+        //     // USART_Printf("X: %d\n", x);
+        //     // USART_Printf("Y: %d\n", y);
+        //     // vector_c_t point = {x, y};
+        //     // vector_p_t polar = cartesian_to_polar(point);
 
 
-            // // draw_point_at(point);
+        //     // // draw_point_at(point);
 
             
             
             
 
-            // //convert double to string
-            // char print_buffer[6];
-            // dtostrf(polar.rho, 4, 2, print_buffer);
-            // USART_Printf("Rho: %s\n", print_buffer);
-            // dtostrf(polar.phi, 4, 2, print_buffer);
-            // USART_Printf("Phi: %s\n", print_buffer);
+        //     // //convert float to string
+        //     // char print_buffer[6];
+        //     // dtostrf(polar.rho, 4, 2, print_buffer);
+        //     // USART_Printf("Rho: %s\n", print_buffer);
+        //     // dtostrf(polar.phi, 4, 2, print_buffer);
+        //     // USART_Printf("Phi: %s\n", print_buffer);
 
             
         }

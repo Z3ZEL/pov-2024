@@ -8,19 +8,19 @@
 
 
 struct vector_cartesian {
-    double x;
-    double y;
+    float x;
+    float y;
 } typedef vector_c_t;
 
 
 struct vector_polar {
-    double rho;
-    double phi;
+    float rho;
+    float phi;
 } typedef vector_p_t;
 
 
-double second_to_rad(uint8_t second);
-int rad_to_index(int length, double rad);
+float second_to_rad(uint8_t second);
+int rad_to_index(int length, float rad);
 vector_p_t cartesian_to_polar(vector_c_t v);
 
 #endif
