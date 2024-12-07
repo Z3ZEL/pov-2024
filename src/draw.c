@@ -65,7 +65,7 @@ void interpolateLine(vector_c_t start, vector_c_t end, float step, vector_c_t re
     }
 }
 
-void draw_digit_at(vector_c_t origin, const char* digit, float scale) {
+void draw_curve_at(vector_c_t origin, const char* digit, float scale) {
     // Parse the digit string
     vector_c_t points[10];
 
@@ -93,7 +93,7 @@ void draw_digit_at(vector_c_t origin, const char* digit, float scale) {
         if (i == count - 1) {
             continue;
         }
-        interpolateLine(points[i], points[(i + 1)], 0.25 * scale, interpolated, &interpolatedCount);
+        interpolateLine(points[i], points[(i + 1)], 0.20 * scale, interpolated, &interpolatedCount);
     }
 
     // Draw the interpolated lines
@@ -110,6 +110,6 @@ void draw_int_at(vector_c_t origin, int number, float scale) {
     }else if(number < 0){
         number = 0;
     }
-    draw_digit_at(origin, DIGIT_CORRESPONDANCE[number], scale);
+    draw_curve_at(origin, DIGIT_CORRESPONDANCE[number], scale);
 }
 

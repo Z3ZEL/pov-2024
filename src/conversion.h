@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #define PI 3.14159
-#define POLAR_PHI_DISCRETISATION 128
+#define POLAR_PHI_DISCRETISATION 256
 #define POLAR_RHO_DISCRETISATION 16
 
 
